@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@atlascloud/config": ["../../packages/config/src"],
+      "@atlascloud/config/*": ["../../packages/config/src/*"],
+      "@atlascloud/contracts": ["../../packages/contracts/src"],
+      "@atlascloud/contracts/*": ["../../packages/contracts/src/*"],
+      "@atlascloud/testing": ["../../packages/testing/src"],
+      "@atlascloud/testing/*": ["../../packages/testing/src/*"]
+    }
+  },
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

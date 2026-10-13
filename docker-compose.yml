@@ -1,0 +1,197 @@
+version: '3.9'
+
+# ==============================================================================
+# AtlasCloud — Local Development Infrastructure
+# Start: docker compose up -d
+# Stop:  docker compose down
+# Reset: docker compose down -v && docker compose up -d
+# ==============================================================================
+
+x-logging: &default-logging
+  driver: 'json-file'
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  # ============================================================================
+  # PostgreSQL
+  # ============================================================================
+  postgres:
+    image: postgres:16.4-alpine
+    container_name: atlascloud-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-atlascloud}
+      POSTGRES_USER: ${POSTGRES_USER:-atlascloud_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_admin_password}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-atlascloud_admin} -d ${POSTGRES_DB:-atlascloud}',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    logging: *default-logging
+    networks:
+      - atlascloud-net
+
+  # ============================================================================
+  # Redis
+  # ============================================================================
+  redis:
+    image: redis:7.4-alpine
+    container_name: atlascloud-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-dev_redis_password}
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+      --loglevel notice
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'redis-cli',
+          '--no-auth-warning',
+          '-a',
+          '${REDIS_PASSWORD:-dev_redis_password}',
+          'ping',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 192m
+    logging: *default-logging
+    networks:
+      - atlascloud-net
+
+  # ============================================================================
+  # RabbitMQ
+  # ============================================================================
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: atlascloud-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-atlascloud}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-dev_rabbit_password}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    ports:
+      - '5672:5672' # AMQP
+      - '15672:15672' # Management UI
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 384m
+    logging: *default-logging
+    networks:
+      - atlascloud-net
+
+  # ============================================================================
+  # Prometheus
+  # ============================================================================
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: atlascloud-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./infrastructure/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - postgres
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    logging: *default-logging
+    networks:
+      - atlascloud-net
+
+  # ============================================================================
+  # Grafana
+  # ============================================================================
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: atlascloud-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-dev_grafana_password}
+      GF_SECURITY_ADMIN_USER: admin
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+      GF_FEATURE_TOGGLES_ENABLE: publicDashboards
+    ports:
+      - '3001:3000'
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    logging: *default-logging
+    networks:
+      - atlascloud-net
+
+# ==============================================================================
+# Volumes
+# ==============================================================================
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  rabbitmq-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+# ==============================================================================
+# Networks
+# ==============================================================================
+networks:
+  atlascloud-net:
+    driver: bridge

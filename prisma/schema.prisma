@@ -1,0 +1,320 @@
+// =============================================================================
+// AtlasCloud Prisma Schema
+// =============================================================================
+// Provider: PostgreSQL 16
+// ORM: Prisma 5
+//
+// Architecture notes:
+// - All tenant-owned tables have an organizationId for RLS policy binding.
+// - Soft deletion is NOT used by default — hard deletes with audit log events.
+// - All primary keys use UUID (gen_random_uuid() at the DB level).
+// - createdAt/updatedAt are set by the DB (defaultNow / @updatedAt).
+// - Row Level Security policies are applied via migration SQL (see migrations).
+// =============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  directUrl         = env("DATABASE_DIRECT_URL")
+  extensions        = [pgcrypto, uuid_ossp]
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BANNED
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum JobType {
+  PROJECT_REPORT
+  DATA_EXPORT
+  // Add more job types here as new features are implemented
+}
+
+enum AuditAction {
+  // Auth
+  AUTH_REGISTER
+  AUTH_LOGIN
+  AUTH_LOGOUT
+  AUTH_REFRESH_TOKEN
+  AUTH_TOKEN_REVOKED
+  // Organization
+  ORG_CREATED
+  ORG_UPDATED
+  ORG_SUSPENDED
+  ORG_REACTIVATED
+  // Membership
+  MEMBER_ADDED
+  MEMBER_ROLE_CHANGED
+  MEMBER_REMOVED
+  // Project
+  PROJECT_CREATED
+  PROJECT_UPDATED
+  PROJECT_DELETED
+  // Job
+  JOB_SUBMITTED
+  JOB_CANCELLED
+  JOB_COMPLETED
+  JOB_FAILED
+  // Platform
+  PLATFORM_ADMIN_GRANTED
+  PLATFORM_ADMIN_REVOKED
+}
+
+enum OutboxStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+}
+
+// =============================================================================
+// ORGANIZATION
+// =============================================================================
+
+model Organization {
+  id        String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String             @db.VarChar(255)
+  slug      String             @unique @db.VarChar(63)
+  status    OrganizationStatus @default(ACTIVE)
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  memberships Membership[]
+  projects    Project[]
+  jobs        Job[]
+  auditLogs   AuditLog[]
+
+  @@index([slug])
+  @@index([status])
+  @@map("organizations")
+}
+
+// =============================================================================
+// USER
+// =============================================================================
+
+model User {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String     @unique @db.VarChar(255)
+  passwordHash String     @map("password_hash") @db.VarChar(255)
+  displayName  String     @map("display_name") @db.VarChar(255)
+  status       UserStatus @default(ACTIVE)
+  isPlatformAdmin Boolean @default(false) @map("is_platform_admin")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  memberships    Membership[]
+  refreshSessions RefreshSession[]
+  createdProjects Project[]    @relation("ProjectCreator")
+  submittedJobs   Job[]        @relation("JobRequester")
+  auditActorLogs  AuditLog[]   @relation("AuditActor")
+
+  @@index([email])
+  @@index([status])
+  @@map("users")
+}
+
+// =============================================================================
+// REFRESH SESSION (Refresh Token store)
+// =============================================================================
+
+/// Stores refresh token sessions.
+/// The actual token value is NEVER stored — only a cryptographic hash (SHA-256).
+/// Rotation: each use generates a new token and invalidates the old one.
+/// Reuse detection: if an already-used token is presented, the entire family is revoked.
+model RefreshSession {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  tokenHash   String    @unique @map("token_hash") @db.VarChar(64) // SHA-256 hex
+  familyId    String    @map("family_id") @db.Uuid                  // For reuse detection
+  isRevoked   Boolean   @default(false) @map("is_revoked")
+  expiresAt   DateTime  @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  revokedAt   DateTime? @map("revoked_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([familyId])
+  @@index([expiresAt])
+  @@map("refresh_sessions")
+}
+
+// =============================================================================
+// MEMBERSHIP
+// =============================================================================
+
+model Membership {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String     @map("organization_id") @db.Uuid
+  userId         String     @map("user_id") @db.Uuid
+  role           MemberRole @default(MEMBER)
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@map("memberships")
+}
+
+// =============================================================================
+// PROJECT
+// =============================================================================
+
+model Project {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  name           String        @db.VarChar(255)
+  description    String?       @db.Text
+  status         ProjectStatus @default(ACTIVE)
+  createdById    String        @map("created_by_id") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("ProjectCreator", fields: [createdById], references: [id])
+  jobs         Job[]
+
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@map("projects")
+}
+
+// =============================================================================
+// JOB
+// =============================================================================
+
+model Job {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  projectId       String?   @map("project_id") @db.Uuid
+  type            JobType
+  status          JobStatus @default(PENDING)
+  /// Validated JSON payload specific to the job type
+  payload         Json      @default("{}")
+  /// JSON result — set when status = COMPLETED
+  result          Json?
+  /// Client-supplied idempotency key (scoped to organizationId)
+  idempotencyKey  String?   @map("idempotency_key") @db.VarChar(255)
+  attempts        Int       @default(0)
+  requestedById   String    @map("requested_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  startedAt       DateTime? @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+  failureCode     String?   @map("failure_code") @db.VarChar(100)
+  /// Safe error message — no stack traces or internal details
+  failureMessage  String?   @map("failure_message") @db.Text
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id])
+  project      Project?     @relation(fields: [projectId], references: [id])
+  requestedBy  User         @relation("JobRequester", fields: [requestedById], references: [id])
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([status, createdAt])
+  @@index([projectId])
+  @@map("jobs")
+}
+
+// =============================================================================
+// AUDIT LOG
+// =============================================================================
+
+/// Append-only audit log. Records are never updated or deleted.
+/// Only safe metadata is stored — no passwords, tokens, or sensitive payloads.
+model AuditLog {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String?     @map("organization_id") @db.Uuid
+  actorUserId    String?     @map("actor_user_id") @db.Uuid
+  action         AuditAction
+  resourceType   String      @map("resource_type") @db.VarChar(100)
+  resourceId     String?     @map("resource_id") @db.Uuid
+  requestId      String?     @map("request_id") @db.VarChar(36)
+  /// Safe metadata — must be sanitized before writing
+  metadata       Json        @default("{}")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  // Relations (nullable — platform-level events have no org)
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  actorUser    User?         @relation("AuditActor", fields: [actorUserId], references: [id])
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([actorUserId])
+  @@index([action])
+  @@index([resourceType, resourceId])
+  @@map("audit_logs")
+}
+
+// =============================================================================
+// OUTBOX EVENT (Transactional Outbox Pattern)
+// =============================================================================
+
+/// Transactional outbox for reliable event publication to RabbitMQ.
+/// Events are written atomically with the business operation.
+/// A background publisher polls for PENDING events and publishes them.
+/// Events are idempotent — consumers must handle duplicate delivery.
+model OutboxEvent {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventType     String      @map("event_type") @db.VarChar(100)
+  aggregateId   String      @map("aggregate_id") @db.Uuid
+  aggregateType String      @map("aggregate_type") @db.VarChar(100)
+  payload       Json
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  nextAttemptAt DateTime     @default(now()) @map("next_attempt_at")
+  publishedAt   DateTime?    @map("published_at")
+  lastError     String?      @map("last_error") @db.Text
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  @@index([status, nextAttemptAt])
+  @@index([aggregateId])
+  @@map("outbox_events")
+}
