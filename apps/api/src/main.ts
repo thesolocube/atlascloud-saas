@@ -26,14 +26,16 @@ async function bootstrap(): Promise<void> {
   // ── Security headers (Helmet) ──────────────────────────────────────────────
   app.use(
     helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"], // Swagger UI needs this
-          imgSrc: ["'self'", 'data:', 'https:'],
-          scriptSrc: ["'self'"],
-        },
-      },
+      contentSecurityPolicy: config.isDevelopment
+        ? false
+        : {
+            directives: {
+              defaultSrc: ["'self'"],
+              styleSrc: ["'self'", "'unsafe-inline'"],
+              imgSrc: ["'self'", 'data:', 'https:'],
+              scriptSrc: ["'self'"],
+            },
+          },
     }),
   );
 
@@ -48,7 +50,9 @@ async function bootstrap(): Promise<void> {
   });
 
   // ── Global prefix and versioning ───────────────────────────────────────────
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', {
+    exclude: ['dashboard', 'dashboard/(.*)', 'login', 'login/(.*)', ''],
+  });
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 
   // ── Global pipes (validation) ──────────────────────────────────────────────

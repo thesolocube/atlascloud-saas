@@ -42,6 +42,9 @@ secrets-check: ## Verify .env file exists (does not print values)
 	@echo ".env file found."
 
 ## ── Development ───────────────────────────────────────────────────────────────
+start-all: ## Start entire turnkey stack (Docker infra, Prisma DB, and API)
+	bash scripts/start-all.sh
+
 dev: infra-up ## Start infrastructure and run both apps in watch mode (2 terminals needed)
 	@echo "Infrastructure is up. Run 'make dev-api' and 'make dev-worker' in separate terminals."
 

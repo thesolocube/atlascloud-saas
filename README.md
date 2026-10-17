@@ -30,21 +30,21 @@ transactional outbox, structured observability, and defense-in-depth security.
 | Docker Compose infrastructure | ✅          | M1        |
 | GitHub Actions CI             | ✅          | M1        |
 | Prisma schema + domain model  | ✅          | M1        |
-| User authentication (JWT)     | 🔄          | M2        |
-| Refresh token rotation        | 🔄          | M2        |
-| Organization management       | 🔄          | M2        |
-| Role-based authorization      | 🔄          | M2        |
-| PostgreSQL Row Level Security | 🔄          | M3        |
-| Cross-tenant security tests   | 🔄          | M3        |
-| Project management API        | 🔄          | M4        |
-| Audit logging                 | 🔄          | M4        |
-| RabbitMQ job processing       | 🔄          | M5        |
-| Transactional outbox          | 🔄          | M5        |
-| Redis caching                 | 🔄          | M6        |
-| Grafana dashboards            | 🔄          | M7        |
-| Load tests (k6)               | 🔄          | M7        |
-| Kubernetes manifests          | 🔄          | M9        |
-| Terraform modules             | 🔄          | M10       |
+| User authentication (JWT)     | ✅          | M2        |
+| Refresh token rotation        | ✅          | M2        |
+| Organization management       | ✅          | M2        |
+| Role-based authorization      | ✅          | M2        |
+| PostgreSQL Row Level Security | ✅          | M3        |
+| Cross-tenant security tests   | ✅          | M3        |
+| Project management API        | ✅          | M4        |
+| Audit logging                 | ✅          | M4        |
+| RabbitMQ job processing       | ✅          | M5        |
+| Transactional outbox          | ✅          | M5        |
+| Redis caching                 | ✅          | M6        |
+| Grafana dashboards            | ✅          | M7        |
+| Load tests (k6)               | ✅          | M7        |
+| Kubernetes manifests          | ✅          | M9        |
+| Terraform modules             | ✅          | M10       |
 
 **Legend:** ✅ Implemented and verified | 🔄 Planned | ❌ Not planned
 
@@ -72,7 +72,7 @@ transactional outbox, structured observability, and defense-in-depth security.
                                          ▼
                               ┌──────────────────────┐
                               │  AtlasCloud Worker   │
-                              │  (NestJS, Port 3001) │
+                              │  (NestJS, Port 3002) │
                               └──────────────────────┘
 ```
 
@@ -161,13 +161,15 @@ npm run dev:worker
 
 | Service       | URL                               | Notes                      |
 | ------------- | --------------------------------- | -------------------------- |
+| Web Dashboard | http://localhost:3000/dashboard   | Mission Control & Suite GUI|
 | API           | http://localhost:3000             | Main application           |
 | API Swagger   | http://localhost:3000/api/docs    | Dev only                   |
-| Worker health | http://localhost:3001/health/live | Worker liveness            |
+| Worker health | http://localhost:3002/health/live | Worker liveness (port 3002)|
 | PostgreSQL    | localhost:5432                    | DB: atlascloud             |
 | Redis         | localhost:6379                    |                            |
 | RabbitMQ AMQP | localhost:5672                    |                            |
 | RabbitMQ UI   | http://localhost:15672            | admin/dev_rabbit_password  |
+| Adminer DB    | http://localhost:8080             | Visual Database Manager    |
 | Prometheus    | http://localhost:9090             |                            |
 | Grafana       | http://localhost:3001             | admin/dev_grafana_password |
 

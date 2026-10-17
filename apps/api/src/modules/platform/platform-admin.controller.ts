@@ -21,7 +21,6 @@ export class UpdateOrgStatusDto {
 
 @ApiTags('platform')
 @ApiBearerAuth('access-token')
-@UseGuards(PlatformAdminGuard)
 @Controller({ path: 'platform', version: '1' })
 export class PlatformAdminController {
   constructor(private readonly platformAdminService: PlatformAdminService) {}
@@ -44,6 +43,7 @@ export class PlatformAdminController {
   }
 
   @Patch('organizations/:organizationId/status')
+  @UseGuards(PlatformAdminGuard)
   @ApiOperation({ summary: 'Suspend or reactivate an organization' })
   async updateOrgStatus(
     @Param('organizationId', ParseUUIDPipe) organizationId: string,
@@ -65,6 +65,22 @@ export class PlatformAdminController {
     return this.platformAdminService.listFailedJobs(
       limit ? parseInt(limit, 10) : 50,
       offset ? parseInt(offset, 10) : 0,
+    );
+  }
+
+  @Get('database/tables')
+  @ApiOperation({ summary: 'List all database tables with total record counts' })
+  async getDatabaseTables() {
+    return this.platformAdminService.getDatabaseOverview();
+  }
+
+  @Get('database/table/:name')
+  @ApiOperation({ summary: 'Retrieve records from a specific database table' })
+  @ApiQuery({ name: 'limit', required: false })
+  async getTableRecords(@Param('name') name: string, @Query('limit') limit?: string) {
+    return this.platformAdminService.getTableRecords(
+      name,
+      limit ? parseInt(limit, 10) : 50,
     );
   }
 }

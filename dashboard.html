@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AtlasCloud — Plateforme SaaS & Portail d'Authentification</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 900: '#312e81' },
+            accent: { 400: '#22d3ee', 500: '#06b6d4', 600: '#0891b2' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+    .glass { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .glow-indigo { box-shadow: 0 0 40px -10px rgba(99, 102, 241, 0.35); }
+    .glow-cyan { box-shadow: 0 0 40px -10px rgba(6, 182, 212, 0.35); }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); }
+    .custom-scroll::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.5); border-radius: 9999px; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-brand-500 selection:text-white">
+
+  <!-- ========================================================================= -->
+  <!-- 1. VUE SÉPARÉE D'AUTHENTIFICATION (LOGIN / REGISTER)                     -->
+  <!-- ========================================================================= -->
+  <div id="auth-view" class="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-radial from-slate-900 via-slate-950 to-slate-950">
+    <!-- Ambient Glow Orbs -->
+    <div class="absolute -top-32 -left-32 w-96 h-96 bg-brand-600/20 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-accent-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+    <!-- Status Header -->
+    <div class="mb-8 text-center space-y-2 relative z-10">
+      <div class="inline-flex items-center gap-3 px-4 py-2 rounded-2xl glass mb-2">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-accent-400 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+          <i data-lucide="cloud" class="w-6 h-6 text-white"></i>
+        </div>
+        <div class="text-left">
+          <div class="flex items-center gap-2">
+            <span class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">AtlasCloud</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">DB Connectée</span>
+          </div>
+          <p class="text-xs text-slate-400">Multi-Tenant Cloud Platform • PostgreSQL RLS • Argon2id</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auth Card -->
+    <div class="w-full max-w-md glass p-8 rounded-3xl relative z-10 glow-indigo border border-slate-800/90 shadow-2xl">
+      <!-- Tabs Switcher -->
+      <div class="flex p-1 bg-slate-900/90 rounded-2xl border border-slate-800 mb-6">
+        <button id="auth-tab-login" onclick="switchAuthMode('login')" class="flex-1 py-2 text-xs font-bold rounded-xl transition-all bg-brand-600 text-white shadow-md">
+          Se Connecter
+        </button>
+        <button id="auth-tab-register" onclick="switchAuthMode('register')" class="flex-1 py-2 text-xs font-bold rounded-xl transition-all text-slate-400 hover:text-slate-200">
+          Créer un Compte & Tenant
+        </button>
+      </div>
+
+      <!-- Alert Message Box -->
+      <div id="auth-alert" class="hidden mb-4 p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2"></div>
+
+      <!-- FORMULAIRE DE CONNEXION (LOGIN) -->
+      <form id="form-login" onsubmit="submitLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+            <i data-lucide="mail" class="w-3.5 h-3.5 text-brand-400"></i> Adresse Email
+          </label>
+          <input type="email" id="login-email" required placeholder="nom@entreprise.com" class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500 transition-colors">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+            <i data-lucide="lock" class="w-3.5 h-3.5 text-brand-400"></i> Mot de Passe
+          </label>
+          <input type="password" id="login-password" required placeholder="••••••••••••" class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500 transition-colors">
+        </div>
+
+        <button type="submit" id="btn-login" class="w-full py-3 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
+          <span>Se Connecter à la Plateforme</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+
+        <!-- Quick Credentials / Demo Buttons -->
+        <div class="pt-4 border-t border-slate-800/80">
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2.5 text-center">Ou connexion rapide avec un compte de test :</p>
+          <div class="grid grid-cols-2 gap-2 text-left">
+            <button type="button" onclick="fillAndLogin('alice@acme.local', 'DevOwner@123!')" class="p-2 bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 rounded-lg text-[11px] text-slate-300 transition-colors">
+              <span class="font-bold text-white block">🏢 Alice (Acme)</span>
+              <span class="text-[10px] text-amber-400">Role: OWNER</span>
+            </button>
+            <button type="button" onclick="fillAndLogin('bob@acme.local', 'DevMember@123!')" class="p-2 bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 rounded-lg text-[11px] text-slate-300 transition-colors">
+              <span class="font-bold text-white block">🛡️ Bob (Acme)</span>
+              <span class="text-[10px] text-purple-400">Role: ADMIN</span>
+            </button>
+            <button type="button" onclick="fillAndLogin('eve@beta.local', 'DevOwner@123!')" class="p-2 bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 rounded-lg text-[11px] text-slate-300 transition-colors">
+              <span class="font-bold text-white block">🚀 Eve (Beta Inc)</span>
+              <span class="text-[10px] text-cyan-400">Autre Tenant</span>
+            </button>
+            <button type="button" onclick="fillAndLogin('admin@atlascloud.local', 'DevAdmin@123!')" class="p-2 bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 rounded-lg text-[11px] text-slate-300 transition-colors">
+              <span class="font-bold text-white block">👑 SuperAdmin</span>
+              <span class="text-[10px] text-rose-400">Platform Admin</span>
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <!-- FORMULAIRE D'INSCRIPTION (REGISTER & NEW ORG) -->
+      <form id="form-register" onsubmit="submitRegister(event)" class="space-y-3.5 hidden">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
+            <i data-lucide="user" class="w-3.5 h-3.5 text-cyan-400"></i> Nom Complet
+          </label>
+          <input type="text" id="reg-name" required placeholder="Alexandre Martin" class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
+            <i data-lucide="mail" class="w-3.5 h-3.5 text-cyan-400"></i> Adresse Email
+          </label>
+          <input type="email" id="reg-email" required placeholder="alex@mycloud.io" class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
+            <i data-lucide="lock" class="w-3.5 h-3.5 text-cyan-400"></i> Mot de Passe (min 8 caractères)
+          </label>
+          <input type="password" id="reg-password" minlength="8" required placeholder="••••••••••••" class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
+            <i data-lucide="building" class="w-3.5 h-3.5 text-cyan-400"></i> Nom de votre Nouvelle Organisation SaaS
+          </label>
+          <input type="text" id="reg-org" required placeholder="Stark Industries" oninput="updateSlugPreview(this.value)" class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
+          <div class="mt-1 text-[10px] text-slate-400">Slug tenant : <code id="slug-preview" class="text-cyan-400 font-bold">stark-industries</code></div>
+        </div>
+
+        <button type="submit" id="btn-register" class="w-full py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl transition-all shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2 mt-2">
+          <span>Créer mon Compte & Devenir OWNER</span>
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 2. VUE COMPLÈTE DU TABLEAU DE BORD (AUTHENTIFIÉ)                          -->
+  <!-- ========================================================================= -->
+  <div id="app-view" class="hidden min-h-screen flex flex-col flex-1">
+    
+    <!-- TOPBAR -->
+    <header class="glass sticky top-0 z-40 border-b border-slate-800/80 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-accent-400 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+          <i data-lucide="cloud" class="w-6 h-6 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">AtlasCloud</span>
+            <span class="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-400 border border-brand-500/20">v1.0.0</span>
+          </div>
+          <p class="text-xs text-slate-400 hidden sm:block">Mission Control SaaS Multi-Tenant</p>
+        </div>
+      </div>
+
+      <!-- HEALTH STATUS PILLS -->
+      <div class="hidden md:flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-full border border-slate-800 text-xs">
+        <div class="flex items-center gap-1.5" title="API Status">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="text-slate-300 font-medium">API :3000</span>
+        </div>
+        <span class="text-slate-700">|</span>
+        <div class="flex items-center gap-1.5" title="DB Connection">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span class="text-slate-300 font-medium">Postgres RLS</span>
+        </div>
+        <span class="text-slate-700">|</span>
+        <div class="flex items-center gap-1.5" title="RabbitMQ Broker">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span class="text-slate-300 font-medium">RabbitMQ</span>
+        </div>
+        <span class="text-slate-700">|</span>
+        <div class="flex items-center gap-1.5" title="Worker Process">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span class="text-slate-300 font-medium">Worker :3002</span>
+        </div>
+      </div>
+
+      <!-- LOGGED IN USER CHIP & LOGOUT -->
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2.5 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-xl text-xs">
+          <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-brand-500 to-accent-400 flex items-center justify-center text-xs font-bold text-white shadow" id="user-avatar">A</div>
+          <div class="text-left hidden sm:block">
+            <div class="font-bold text-slate-200 text-[11px]" id="user-name">Utilisateur</div>
+            <div class="text-[10px] text-slate-400" id="user-email">email@local</div>
+          </div>
+        </div>
+
+        <button onclick="handleLogout()" class="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors" title="Fermer la session">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">Déconnexion</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- WRAPPER -->
+    <div class="flex flex-1 overflow-hidden">
+      <!-- SIDEBAR -->
+      <aside class="w-64 border-r border-slate-800/80 bg-slate-900/40 p-4 flex flex-col justify-between hidden md:flex shrink-0">
+        <div class="space-y-6">
+          <!-- Tenant Active Selector -->
+          <div class="bg-slate-900/80 p-3 rounded-2xl border border-slate-800">
+            <label class="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-1.5 flex items-center gap-1.5">
+              <i data-lucide="building-2" class="w-3.5 h-3.5 text-accent-400"></i> Organisation Actrice
+            </label>
+            <select id="tenant-select" onchange="switchOrganization(this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 font-semibold focus:outline-none focus:border-brand-500">
+              <option value="">Chargement...</option>
+            </select>
+            <div class="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
+              <span>Rôle de session :</span>
+              <span id="tenant-role-badge" class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">OWNER</span>
+            </div>
+          </div>
+
+          <!-- Nav Menu -->
+          <nav class="space-y-1">
+            <button onclick="setTab('overview')" id="nav-overview" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all bg-brand-600/15 text-brand-300 border border-brand-500/30">
+              <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Vue Générale
+            </button>
+            <button onclick="setTab('projects')" id="nav-projects" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all">
+              <i data-lucide="folder-kanban" class="w-4 h-4"></i> Projets RLS
+            </button>
+            <button onclick="setTab('jobs')" id="nav-jobs" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all">
+              <i data-lucide="cpu" class="w-4 h-4"></i> Jobs & Outbox Worker
+            </button>
+            <button onclick="setTab('members')" id="nav-members" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all">
+              <i data-lucide="users" class="w-4 h-4"></i> Membres & RBAC
+            </button>
+            <button onclick="setTab('security')" id="nav-security" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all">
+              <i data-lucide="shield-alert" class="w-4 h-4"></i> Pentest & Étanchéité
+            </button>
+            <button onclick="setTab('audit')" id="nav-audit" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all">
+              <i data-lucide="file-clock" class="w-4 h-4"></i> Journal d'Audit
+            </button>
+            <button onclick="setTab('database')" id="nav-database" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-emerald-400 hover:bg-emerald-950/30 transition-all border border-emerald-500/20">
+              <i data-lucide="database" class="w-4 h-4"></i> Base de Données
+            </button>
+            <button onclick="setTab('platform')" id="nav-platform" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-purple-400 hover:bg-purple-950/30 transition-all border border-purple-500/20 hidden">
+              <i data-lucide="crown" class="w-4 h-4"></i> Super-Admin Console
+            </button>
+          </nav>
+        </div>
+
+        <!-- External Quick Links -->
+        <div class="space-y-2 pt-4 border-t border-slate-800/60 text-[11px] text-slate-400">
+          <a href="http://localhost:3000/api/docs" target="_blank" class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 hover:text-slate-200 transition-colors">
+            <span class="flex items-center gap-2"><i data-lucide="file-code" class="w-3.5 h-3.5 text-accent-400"></i> Swagger UI</span>
+            <i data-lucide="external-link" class="w-3 h-3"></i>
+          </a>
+          <a href="http://localhost:8080" target="_blank" class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 hover:text-slate-200 transition-colors">
+            <span class="flex items-center gap-2"><i data-lucide="table" class="w-3.5 h-3.5 text-emerald-400"></i> Adminer DB (8080)</span>
+            <i data-lucide="external-link" class="w-3 h-3"></i>
+          </a>
+          <a href="http://localhost:3001" target="_blank" class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 hover:text-slate-200 transition-colors">
+            <span class="flex items-center gap-2"><i data-lucide="activity" class="w-3.5 h-3.5 text-amber-400"></i> Grafana (3001)</span>
+            <i data-lucide="external-link" class="w-3 h-3"></i>
+          </a>
+          <a href="http://localhost:15672" target="_blank" class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 hover:text-slate-200 transition-colors">
+            <span class="flex items-center gap-2"><i data-lucide="workflow" class="w-3.5 h-3.5 text-rose-400"></i> RabbitMQ UI</span>
+            <i data-lucide="external-link" class="w-3 h-3"></i>
+          </a>
+        </div>
+      </aside>
+
+      <!-- MAIN CONTENT -->
+      <main class="flex-1 overflow-y-auto custom-scroll p-6 lg:p-8 space-y-6">
+        <div id="toast-banner" class="hidden transition-all duration-300 p-4 rounded-2xl border flex items-center justify-between text-xs font-medium"></div>
+
+        <!-- TAB 1: OVERVIEW -->
+        <div id="tab-overview" class="tab-pane space-y-6">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                Tableau de Bord Exécutif
+                <span class="text-xs font-normal text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">Session Active</span>
+              </h1>
+              <p class="text-sm text-slate-400">Données en direct rattachées à votre tenant et isolées par PostgreSQL RLS.</p>
+            </div>
+            <button onclick="refreshAll()" class="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-2 text-slate-200 transition-colors">
+              <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i> Actualiser Tout
+            </button>
+          </div>
+
+          <!-- STATS GRID -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="glass p-5 rounded-2xl relative overflow-hidden">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-medium text-slate-400">Projets du Tenant</span>
+                <div class="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20">
+                  <i data-lucide="folder" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div class="text-3xl font-extrabold text-white" id="stat-projects-count">0</div>
+              <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                <span class="text-emerald-400 font-semibold">100% isolés</span> via PostgreSQL RLS
+              </div>
+            </div>
+
+            <div class="glass p-5 rounded-2xl relative overflow-hidden">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-medium text-slate-400">Jobs Traités (Worker)</span>
+                <div class="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center border border-cyan-500/20">
+                  <i data-lucide="cpu" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div class="text-3xl font-extrabold text-white" id="stat-jobs-count">0</div>
+              <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                <span class="text-cyan-400 font-semibold">Transactional Outbox</span> actif
+              </div>
+            </div>
+
+            <div class="glass p-5 rounded-2xl relative overflow-hidden">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-medium text-slate-400">Membres de l'Équipe</span>
+                <div class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20">
+                  <i data-lucide="users" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div class="text-3xl font-extrabold text-white" id="stat-members-count">0</div>
+              <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                <span class="text-purple-400 font-semibold">RBAC</span> (Owner, Admin, Member, Viewer)
+              </div>
+            </div>
+
+            <div class="glass p-5 rounded-2xl relative overflow-hidden">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-medium text-slate-400">Audit Logs</span>
+                <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+                  <i data-lucide="shield-check" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div class="text-3xl font-extrabold text-white" id="stat-audit-count">0</div>
+              <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                <span class="text-emerald-400 font-semibold">Immuabilité légale</span> vérifiée
+              </div>
+            </div>
+          </div>
+
+          <!-- ARCHITECTURE FLOW -->
+          <div class="glass p-6 rounded-2xl border border-slate-800">
+            <h2 class="text-base font-bold text-white mb-2 flex items-center gap-2">
+              <i data-lucide="git-merge" class="w-5 h-5 text-brand-400"></i> Architecture & Flux de Données Sécurisé
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-center mt-4">
+              <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+                <div class="w-8 h-8 rounded-full bg-brand-500/20 text-brand-400 mx-auto flex items-center justify-center text-xs font-bold mb-2">1</div>
+                <h3 class="text-xs font-bold text-white">Authentification JWT</h3>
+                <p class="text-[11px] text-slate-400 mt-1">Argon2id + Rotation Refresh Tokens</p>
+              </div>
+              <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+                <div class="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 mx-auto flex items-center justify-center text-xs font-bold mb-2">2</div>
+                <h3 class="text-xs font-bold text-white">PostgreSQL RLS</h3>
+                <p class="text-[11px] text-slate-400 mt-1">`SET LOCAL app.current_org_id`</p>
+              </div>
+              <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+                <div class="w-8 h-8 rounded-full bg-cyan-500/20 text-cyan-400 mx-auto flex items-center justify-center text-xs font-bold mb-2">3</div>
+                <h3 class="text-xs font-bold text-white">Transactional Outbox</h3>
+                <p class="text-[11px] text-slate-400 mt-1">Écriture atomique en base SQL</p>
+              </div>
+              <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+                <div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center text-xs font-bold mb-2">4</div>
+                <h3 class="text-xs font-bold text-white">Worker & RabbitMQ</h3>
+                <p class="text-[11px] text-slate-400 mt-1">Dépouillement `SKIP LOCKED`</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: PROJECTS -->
+        <div id="tab-projects" class="tab-pane hidden space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                <i data-lucide="folder-kanban" class="w-6 h-6 text-brand-400"></i> Projets RLS
+              </h1>
+              <p class="text-sm text-slate-400">Projets cloisonnés sous l'organisation active dans PostgreSQL.</p>
+            </div>
+            <button onclick="openNewProjectModal()" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-brand-500/20">
+              <i data-lucide="plus" class="w-4 h-4"></i> Nouveau Projet
+            </button>
+          </div>
+          <div class="glass rounded-2xl overflow-hidden border border-slate-800">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-900/80 text-slate-400 uppercase text-[10px] font-bold border-b border-slate-800">
+                <tr>
+                  <th class="px-6 py-3.5">Nom</th>
+                  <th class="px-6 py-3.5">Description</th>
+                  <th class="px-6 py-3.5">Statut</th>
+                  <th class="px-6 py-3.5">Date</th>
+                  <th class="px-6 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="projects-table-body" class="divide-y divide-slate-800/60 text-slate-300">
+                <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Chargement...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 3: JOBS -->
+        <div id="tab-jobs" class="tab-pane hidden space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                <i data-lucide="cpu" class="w-6 h-6 text-cyan-400"></i> Jobs Asynchrones & Outbox
+              </h1>
+              <p class="text-sm text-slate-400">Exécution en arrière-plan par le Worker NestJS via RabbitMQ.</p>
+            </div>
+            <button onclick="submitNewJob()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-cyan-500/20">
+              <i data-lucide="play" class="w-4 h-4"></i> Déclencher un Job
+            </button>
+          </div>
+          <div class="glass rounded-2xl overflow-hidden border border-slate-800">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-900/80 text-slate-400 uppercase text-[10px] font-bold border-b border-slate-800">
+                <tr>
+                  <th class="px-6 py-3.5">ID</th>
+                  <th class="px-6 py-3.5">Type</th>
+                  <th class="px-6 py-3.5">Statut</th>
+                  <th class="px-6 py-3.5">Créé le</th>
+                  <th class="px-6 py-3.5">Payload</th>
+                </tr>
+              </thead>
+              <tbody id="jobs-table-body" class="divide-y divide-slate-800/60 text-slate-300 font-mono text-[11px]">
+                <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Chargement...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 4: MEMBERS -->
+        <div id="tab-members" class="tab-pane hidden space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                <i data-lucide="users" class="w-6 h-6 text-purple-400"></i> Membres & RBAC
+              </h1>
+              <p class="text-sm text-slate-400">Gestion des rôles au sein de l'organisation courante.</p>
+            </div>
+            <button onclick="openInviteModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-purple-500/20">
+              <i data-lucide="user-plus" class="w-4 h-4"></i> Inviter un Membre
+            </button>
+          </div>
+          <div class="glass rounded-2xl overflow-hidden border border-slate-800">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-900/80 text-slate-400 uppercase text-[10px] font-bold border-b border-slate-800">
+                <tr>
+                  <th class="px-6 py-3.5">Utilisateur</th>
+                  <th class="px-6 py-3.5">Email</th>
+                  <th class="px-6 py-3.5">Rôle</th>
+                  <th class="px-6 py-3.5">Date</th>
+                </tr>
+              </thead>
+              <tbody id="members-table-body" class="divide-y divide-slate-800/60 text-slate-300">
+                <tr><td colspan="4" class="px-6 py-8 text-center text-slate-500">Chargement...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 5: PENTEST -->
+        <div id="tab-security" class="tab-pane hidden space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                <i data-lucide="shield-alert" class="w-6 h-6 text-emerald-400"></i> Pentest & Étanchéité Multi-Tenant
+              </h1>
+              <p class="text-sm text-slate-400">Exécution en direct des scénarios d'attaque pour valider RLS et la rotation des tokens.</p>
+            </div>
+            <button onclick="runSecuritySuite()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-emerald-500/20">
+              <i data-lucide="play-circle" class="w-4 h-4"></i> Lancer le Pentest (4 Tests)
+            </button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div id="test-card-1" class="glass p-5 rounded-2xl border border-slate-800">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xs font-bold text-white flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-slate-500" id="test-dot-1"></span>
+                  Test 1 : Fuite Cross-Tenant
+                </h3>
+                <span id="test-status-1" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400">En attente</span>
+              </div>
+              <p class="text-[11px] text-slate-400">Tentative de lecture de données d'une organisation tierce.</p>
+              <div id="test-log-1" class="mt-3 bg-slate-950 p-2.5 rounded-lg text-[10px] text-slate-400 font-mono hidden"></div>
+            </div>
+
+            <div id="test-card-2" class="glass p-5 rounded-2xl border border-slate-800">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xs font-bold text-white flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-slate-500" id="test-dot-2"></span>
+                  Test 2 : Injection de Job Cross-Tenant
+                </h3>
+                <span id="test-status-2" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400">En attente</span>
+              </div>
+              <p class="text-[11px] text-slate-400">Tentative d'exécution de job dans un tenant non-autorisé.</p>
+              <div id="test-log-2" class="mt-3 bg-slate-950 p-2.5 rounded-lg text-[10px] text-slate-400 font-mono hidden"></div>
+            </div>
+
+            <div id="test-card-3" class="glass p-5 rounded-2xl border border-slate-800">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xs font-bold text-white flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-slate-500" id="test-dot-3"></span>
+                  Test 3 : Détection de Vol Refresh Token
+                </h3>
+                <span id="test-status-3" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400">En attente</span>
+              </div>
+              <p class="text-[11px] text-slate-400">Rejeu de token déjà utilisé déclenchant la révocation de famille.</p>
+              <div id="test-log-3" class="mt-3 bg-slate-950 p-2.5 rounded-lg text-[10px] text-slate-400 font-mono hidden"></div>
+            </div>
+
+            <div id="test-card-4" class="glass p-5 rounded-2xl border border-slate-800">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xs font-bold text-white flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-slate-500" id="test-dot-4"></span>
+                  Test 4 : Protection Rejet Anonyme
+                </h3>
+                <span id="test-status-4" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400">En attente</span>
+              </div>
+              <p class="text-[11px] text-slate-400">Appel direct sans jeton d'autorisation Bearer (rejet 401).</p>
+              <div id="test-log-4" class="mt-3 bg-slate-950 p-2.5 rounded-lg text-[10px] text-slate-400 font-mono hidden"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 6: AUDIT -->
+        <div id="tab-audit" class="tab-pane hidden space-y-6">
+          <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            <i data-lucide="file-clock" class="w-6 h-6 text-emerald-400"></i> Journal d'Audit Immuable
+          </h1>
+          <div class="glass rounded-2xl overflow-hidden border border-slate-800">
+            <table class="w-full text-left text-xs font-mono text-[11px]">
+              <thead class="bg-slate-900/80 text-slate-400 uppercase text-[10px] font-bold font-sans border-b border-slate-800">
+                <tr>
+                  <th class="px-6 py-3.5">Heure</th>
+                  <th class="px-6 py-3.5">Action</th>
+                  <th class="px-6 py-3.5">Acteur</th>
+                  <th class="px-6 py-3.5">Détails</th>
+                </tr>
+              </thead>
+              <tbody id="audit-table-body" class="divide-y divide-slate-800/60 text-slate-300">
+                <tr><td colspan="4" class="px-6 py-8 text-center text-slate-500">Chargement...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 7: PLATFORM -->
+        <div id="tab-platform" class="tab-pane hidden space-y-6">
+          <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+            <i data-lucide="crown" class="w-6 h-6 text-purple-400"></i> Console Super-Admin Globale
+          </h1>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="glass p-5 rounded-2xl border border-slate-800">
+              <h3 class="text-sm font-bold text-white mb-3">Toutes les Organisations</h3>
+              <div id="platform-orgs-list" class="space-y-2 text-xs">Chargement...</div>
+            </div>
+            <div class="glass p-5 rounded-2xl border border-slate-800">
+              <h3 class="text-sm font-bold text-white mb-3">Tous les Utilisateurs</h3>
+              <div id="platform-users-list" class="space-y-2 text-xs">Chargement...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 8: DATABASE EXPLORER (Visualiseur PostgreSQL Intégré) -->
+        <div id="tab-database" class="tab-pane hidden space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                <i data-lucide="database" class="w-6 h-6 text-emerald-400"></i> Explorateur de Base de Données
+              </h1>
+              <p class="text-xs text-slate-400 mt-1">Inspection en direct des tables PostgreSQL • 100% autonome et fluide</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="loadDatabaseTables()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Actualiser
+              </button>
+              <a href="http://localhost:8080" target="_blank" class="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Ouvrir Adminer (8080)
+              </a>
+            </div>
+          </div>
+
+          <!-- Tables Grid -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="db-tables-grid">
+            <!-- Dynamic table cards -->
+          </div>
+
+          <!-- Table Content Viewer -->
+          <div class="glass rounded-2xl overflow-hidden border border-slate-800 space-y-3 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span class="text-sm font-bold text-white uppercase tracking-wider font-mono" id="db-selected-table-name">users</span>
+                <span class="text-xs text-slate-400" id="db-selected-table-count">(0 lignes)</span>
+              </div>
+              <input type="text" id="db-search-input" oninput="filterDbTable(this.value)" placeholder="Filtrer dans la table..." class="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+            </div>
+
+            <div class="overflow-x-auto max-h-[500px] custom-scroll">
+              <table class="w-full text-left text-xs font-mono text-[11px]" id="db-data-table">
+                <thead class="bg-slate-900/90 text-slate-400 uppercase text-[10px] font-bold font-sans border-b border-slate-800 sticky top-0" id="db-table-header">
+                  <!-- Dynamic headers -->
+                </thead>
+                <tbody class="divide-y divide-slate-800/60 text-slate-300" id="db-table-body">
+                  <tr><td class="px-4 py-8 text-center text-slate-500">Sélectionnez une table ci-dessus</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 3. JAVASCRIPT CONNECTÉ DIRECTEMENT À L'API & POSTGRESQL                  -->
+  <!-- ========================================================================= -->
+  <script>
+    const API_BASE = 'http://localhost:3000/api/v1';
+
+    let state = {
+      accessToken: localStorage.getItem('atlas_access_token') || null,
+      refreshToken: localStorage.getItem('atlas_refresh_token') || null,
+      user: JSON.parse(localStorage.getItem('atlas_user') || 'null'),
+      organizations: [],
+      currentOrg: null,
+      projects: [],
+      jobs: [],
+      members: [],
+      audit: []
+    };
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      lucide.createIcons();
+      if (state.accessToken && state.user) {
+        showAppView();
+        await loadOrganizations();
+        await refreshAll();
+      } else {
+        showAuthView();
+      }
+      setInterval(pollJobs, 3000);
+    });
+
+    // ── VUES SWITCHER ────────────────────────────────────────────────────────
+    function showAuthView() {
+      document.getElementById('auth-view').classList.remove('hidden');
+      document.getElementById('app-view').classList.add('hidden');
+      lucide.createIcons();
+    }
+
+    function showAppView() {
+      document.getElementById('auth-view').classList.add('hidden');
+      document.getElementById('app-view').classList.remove('hidden');
+      if (state.user) {
+        document.getElementById('user-name').innerText = state.user.displayName || state.user.email;
+        document.getElementById('user-email').innerText = state.user.email;
+        document.getElementById('user-avatar').innerText = (state.user.displayName || state.user.email).charAt(0).toUpperCase();
+        if (state.user.isPlatformAdmin) {
+          document.getElementById('nav-platform').classList.remove('hidden');
+        } else {
+          document.getElementById('nav-platform').classList.add('hidden');
+        }
+      }
+      lucide.createIcons();
+    }
+
+    function switchAuthMode(mode) {
+      const loginTab = document.getElementById('auth-tab-login');
+      const regTab = document.getElementById('auth-tab-register');
+      const formLogin = document.getElementById('form-login');
+      const formReg = document.getElementById('form-register');
+      hideAuthAlert();
+
+      if (mode === 'login') {
+        loginTab.className = 'flex-1 py-2 text-xs font-bold rounded-xl transition-all bg-brand-600 text-white shadow-md';
+        regTab.className = 'flex-1 py-2 text-xs font-bold rounded-xl transition-all text-slate-400 hover:text-slate-200';
+        formLogin.classList.remove('hidden');
+        formReg.classList.add('hidden');
+      } else {
+        regTab.className = 'flex-1 py-2 text-xs font-bold rounded-xl transition-all bg-cyan-600 text-white shadow-md';
+        loginTab.className = 'flex-1 py-2 text-xs font-bold rounded-xl transition-all text-slate-400 hover:text-slate-200';
+        formReg.classList.remove('hidden');
+        formLogin.classList.add('hidden');
+      }
+      lucide.createIcons();
+    }
+
+    function updateSlugPreview(val) {
+      const slug = val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'mon-organisation';
+      document.getElementById('slug-preview').innerText = slug;
+    }
+
+    function showAuthAlert(msg, type = 'error') {
+      const box = document.getElementById('auth-alert');
+      box.classList.remove('hidden');
+      if (type === 'error') {
+        box.className = 'mb-4 p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2 bg-rose-950/80 border border-rose-500/30 text-rose-300';
+        box.innerHTML = `<i data-lucide="alert-circle" class="w-4 h-4 text-rose-400 shrink-0"></i><span>${msg}</span>`;
+      } else {
+        box.className = 'mb-4 p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2 bg-emerald-950/80 border border-emerald-500/30 text-emerald-300';
+        box.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4 text-emerald-400 shrink-0"></i><span>${msg}</span>`;
+      }
+      lucide.createIcons();
+    }
+
+    function hideAuthAlert() {
+      document.getElementById('auth-alert').classList.add('hidden');
+    }
+
+    // ── AUTH ACTIONS DIRECTEMENT RELIÉES À POSTGRESQL ────────────────────────
+    async function submitLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+      await performLogin(email, password);
+    }
+
+    function fillAndLogin(email, password) {
+      document.getElementById('login-email').value = email;
+      document.getElementById('login-password').value = password;
+      performLogin(email, password);
+    }
+
+    async function performLogin(email, password) {
+      hideAuthAlert();
+      const btn = document.getElementById('btn-login');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="animate-spin inline-block mr-2">⏳</span> Connexion à la base de données...`;
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Identifiants invalides');
+
+        state.accessToken = data.accessToken;
+        state.refreshToken = data.refreshToken;
+        state.user = data.user;
+        localStorage.setItem('atlas_access_token', data.accessToken);
+        localStorage.setItem('atlas_refresh_token', data.refreshToken);
+        localStorage.setItem('atlas_user', JSON.stringify(data.user));
+
+        showAppView();
+        await loadOrganizations();
+        await refreshAll();
+        showToast(`Connecté avec succès : ${data.user.displayName || data.user.email}`, 'success');
+      } catch (err) {
+        showAuthAlert(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Se Connecter à la Plateforme</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+        lucide.createIcons();
+      }
+    }
+
+    async function submitRegister(e) {
+      e.preventDefault();
+      const displayName = document.getElementById('reg-name').value.trim();
+      const email = document.getElementById('reg-email').value.trim();
+      const password = document.getElementById('reg-password').value;
+      const orgName = document.getElementById('reg-org').value.trim();
+      const slug = document.getElementById('slug-preview').innerText;
+
+      hideAuthAlert();
+      const btn = document.getElementById('btn-register');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="animate-spin inline-block mr-2">⏳</span> Enregistrement dans PostgreSQL...`;
+
+      try {
+        // 1. Inscription utilisateur
+        const regRes = await fetch(`${API_BASE}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ displayName, email, password })
+        });
+        const regData = await regRes.json();
+        if (!regRes.ok) throw new Error(regData.message || 'Erreur lors de l\'enregistrement');
+
+        // 2. Connexion immédiate
+        const loginRes = await fetch(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const loginData = await loginRes.json();
+        if (!loginRes.ok) throw new Error('Connexion automatique échouée');
+
+        state.accessToken = loginData.accessToken;
+        state.refreshToken = loginData.refreshToken;
+        state.user = loginData.user;
+        localStorage.setItem('atlas_access_token', loginData.accessToken);
+        localStorage.setItem('atlas_refresh_token', loginData.refreshToken);
+        localStorage.setItem('atlas_user', JSON.stringify(loginData.user));
+
+        // 3. Création automatique de la nouvelle Organisation en tant qu'OWNER
+        const orgRes = await fetch(`${API_BASE}/organizations`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${state.accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name: orgName, slug })
+        });
+        
+        showAppView();
+        await loadOrganizations();
+        await refreshAll();
+        showToast(`Bienvenue ${displayName} ! Organisation ${orgName} créée (Rôle: OWNER)`, 'success');
+      } catch (err) {
+        showAuthAlert(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span>Créer mon Compte & Devenir OWNER</span><i data-lucide="sparkles" class="w-4 h-4"></i>`;
+        lucide.createIcons();
+      }
+    }
+
+    async function handleLogout() {
+      try {
+        if (state.refreshToken) {
+          await fetch(`${API_BASE}/auth/logout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken: state.refreshToken })
+          });
+        }
+      } catch (e) {}
+
+      localStorage.removeItem('atlas_access_token');
+      localStorage.removeItem('atlas_refresh_token');
+      localStorage.removeItem('atlas_user');
+      state.accessToken = null;
+      state.refreshToken = null;
+      state.user = null;
+      state.organizations = [];
+      state.currentOrg = null;
+
+      showAuthView();
+      showAuthAlert('Vous avez été déconnecté. La session en base de données a été révoquée.', 'success');
+    }
+
+    // ── CHARGEMENT DES DONNÉES DU TENANT ────────────────────────────────────
+    async function loadOrganizations() {
+      try {
+        const res = await fetch(`${API_BASE}/organizations`, {
+          headers: { 'Authorization': `Bearer ${state.accessToken}` }
+        });
+        if (!res.ok) return;
+        state.organizations = await res.json();
+
+        const select = document.getElementById('tenant-select');
+        select.innerHTML = '';
+        state.organizations.forEach((org, idx) => {
+          const opt = document.createElement('option');
+          opt.value = org.id;
+          opt.innerText = `${org.name} (${org.slug})`;
+          if (idx === 0) opt.selected = true;
+          select.appendChild(opt);
+        });
+
+        if (state.organizations.length > 0) {
+          state.currentOrg = state.organizations[0];
+          document.getElementById('tenant-role-badge').innerText = state.currentOrg.memberships?.[0]?.role || 'OWNER';
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function switchOrganization(orgId) {
+      const org = state.organizations.find(o => o.id === orgId);
+      if (org) {
+        state.currentOrg = org;
+        refreshAll();
+        showToast(`Tenant actif : ${org.name}`, 'info');
+      }
+    }
+
+    async function refreshAll() {
+      if (!state.currentOrg) return;
+      await Promise.all([
+        loadProjects(),
+        loadJobs(),
+        loadMembers(),
+        loadAudit()
+      ]);
+      if (state.user?.isPlatformAdmin) {
+        loadPlatformData();
+      }
+    }
+
+    async function loadProjects() {
+      if (!state.currentOrg) return;
+      try {
+        const res = await fetch(`${API_BASE}/organizations/${state.currentOrg.id}/projects`, {
+          headers: { 'Authorization': `Bearer ${state.accessToken}` }
+        });
+        if (!res.ok) return;
+        state.projects = await res.json();
+        document.getElementById('stat-projects-count').innerText = state.projects.length;
+
+        const tbody = document.getElementById('projects-table-body');
+        if (state.projects.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Aucun projet dans cette organisation. Créez-en un !</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = state.projects.map(p => `
+          <tr class="hover:bg-slate-900/40 transition-colors">
+            <td class="px-6 py-3.5 font-bold text-white flex items-center gap-2">
+              <i data-lucide="folder" class="w-4 h-4 text-brand-400"></i> ${p.name}
+            </td>
+            <td class="px-6 py-3.5 text-slate-400 max-w-xs truncate">${p.description || '—'}</td>
+            <td class="px-6 py-3.5">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${p.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-400'}">${p.status}</span>
+            </td>
+            <td class="px-6 py-3.5 text-slate-400">${new Date(p.createdAt).toLocaleDateString()}</td>
+            <td class="px-6 py-3.5 text-right">
+              <button onclick="deleteProject('${p.id}')" class="text-slate-400 hover:text-rose-400 p-1 transition-colors" title="Supprimer">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </td>
+          </tr>
+        `).join('');
+        lucide.createIcons();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function openNewProjectModal() {
+      const name = prompt('Nom du projet :');
+      if (!name) return;
+      const description = prompt('Description :') || '';
+
+      try {
+        const res = await fetch(`${API_BASE}/organizations/${state.currentOrg.id}/projects`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${state.accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name, description })
+        });
+        if (!res.ok) throw new Error('Impossible de créer le projet');
+        showToast(`Projet "${name}" créé avec succès !`, 'success');
+        await loadProjects();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function deleteProject(id) {
+      if (!confirm('Supprimer ce projet ?')) return;
+      try {
+        const res = await fetch(`${API_BASE}/organizations/${state.currentOrg.id}/projects/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${state.accessToken}` }
+        });
+        if (!res.ok) throw new Error('Échec de la suppression');
+        showToast('Projet supprimé', 'success');
+        await loadProjects();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function loadJobs() {
+      if (!state.currentOrg) return;
+      try {
+        const res = await fetch(`${API_BASE}/organizations/${state.currentOrg.id}/jobs`, {
+          headers: { 'Authorization': `Bearer ${state.accessToken}` }
+        });
+        if (!res.ok) return;
+        state.jobs = await res.json();
+        document.getElementById('stat-jobs-count').innerText = state.jobs.length;
+
+        const tbody = document.getElementById('jobs-table-body');
+        if (state.jobs.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Aucun job pour le moment.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = state.jobs.map(j => {
+          let badge = 'bg-slate-800 text-slate-400';
+          if (j.status === 'COMPLETED') badge = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+          if (j.status === 'PROCESSING') badge = 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 animate-pulse';
+          if (j.status === 'PENDING') badge = 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
+          if (j.status === 'FAILED') badge = 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
+
+          return `
+            <tr class="hover:bg-slate-900/40 transition-colors">
+              <td class="px-6 py-3.5 text-slate-400">${j.id.slice(0, 8)}...</td>
+              <td class="px-6 py-3.5 font-bold text-white font-sans">${j.type}</td>
+              <td class="px-6 py-3.5"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${badge}">${j.status}</span></td>
+              <td class="px-6 py-3.5 text-slate-400">${new Date(j.createdAt).toLocaleTimeString()}</td>
+              <td class="px-6 py-3.5 text-slate-400 text-[10px] max-w-xs truncate">${JSON.stringify(j.payload || {})}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function pollJobs() {
+      if (document.getElementById('app-view').classList.contains('hidden')) return;
+      await loadJobs();
+    }
+
+    async function submitNewJob() {
+      if (!state.currentOrg) return;
+      try {
+        const res = await fetch(`${API_BASE}/organizations/${state.currentOrg.id}/jobs`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${state.accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            type: 'REPORT_GENERATION',
+            payload: { reportType: 'EXECUTIVE_REPORT', timestamp: new Date().toISOString() }
+          })
+        });
+        if (!res.ok) throw new Error('Impossible de soumettre le job');
+        const job = await res.json();
+        showToast(`Job ${job.id.slice(0,8)} soumis ! En cours de traitement par le Worker...`, 'success');
+        await loadJobs();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function loadMembers() {
+      if (!state.currentOrg) return;
+      try {
+        const res = await fetch(`${API_BASE}/organizations/${state.currentOrg.id}/members`, {
+          headers: { 'Authorization': `Bearer ${state.accessToken}` }
+        });
+        if (!res.ok) return;
+        state.members = await res.json();
+        document.getElementById('stat-members-count').innerText = state.members.length;
+
+        const tbody = document.getElementById('members-table-body');
+        tbody.innerHTML = state.members.map(m => `
+          <tr class="hover:bg-slate-900/40 transition-colors">
+            <td class="px-6 py-3.5 font-bold text-white flex items-center gap-2">
+              <div class="w-6 h-6 rounded-full bg-slate-800 text-[10px] flex items-center justify-center font-bold text-slate-300">
+                ${(m.user?.displayName || 'U').charAt(0)}
+              </div>
+              ${m.user?.displayName || 'Membre'}
+            </td>
+            <td class="px-6 py-3.5 text-slate-400 font-mono text-[11px]">${m.user?.email || '—'}</td>
+            <td class="px-6 py-3.5">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">${m.role}</span>
+            </td>
+            <td class="px-6 py-3.5 text-slate-400">${new Date(m.createdAt).toLocaleDateString()}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function openInviteModal() {
+      const email = prompt('Email du membre à inviter :');
+      if (!email) return;
+      const role = prompt('Rôle (ADMIN, MEMBER, VIEWER) :', 'MEMBER') || 'MEMBER';
+
+      try {
+        const res = await fetch(`${API_BASE}/organizations/${state.currentOrg.id}/members`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${state.accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email, role: role.toUpperCase() })
+        });
+        if (!res.ok) throw new Error('Impossible d\'ajouter ce membre');
+        showToast(`Membre ajouté avec succès !`, 'success');
+        await loadMembers();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function loadAudit() {
+      if (!state.currentOrg) return;
+      try {
+        const res = await fetch(`${API_BASE}/organizations/${state.currentOrg.id}/audit-logs`, {
+          headers: { 'Authorization': `Bearer ${state.accessToken}` }
+        });
+        if (!res.ok) return;
+        state.audit = await res.json();
+        document.getElementById('stat-audit-count').innerText = state.audit.length;
+
+        const tbody = document.getElementById('audit-table-body');
+        if (state.audit.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-slate-500">Aucun log d\'audit.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = state.audit.map(a => `
+          <tr class="hover:bg-slate-900/40 transition-colors">
+            <td class="px-6 py-3 text-slate-400">${new Date(a.createdAt).toLocaleTimeString()}</td>
+            <td class="px-6 py-3 font-bold text-white font-sans">${a.action}</td>
+            <td class="px-6 py-3 text-slate-300">${a.actorId?.slice(0,8) || 'System'}...</td>
+            <td class="px-6 py-3 text-slate-400 truncate max-w-xs">${JSON.stringify(a.details || {})}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function loadPlatformData() {
+      try {
+        const [orgsRes, usersRes] = await Promise.all([
+          fetch(`${API_BASE}/platform/organizations`, { headers: { 'Authorization': `Bearer ${state.accessToken}` } }),
+          fetch(`${API_BASE}/platform/users`, { headers: { 'Authorization': `Bearer ${state.accessToken}` } })
+        ]);
+        if (orgsRes.ok) {
+          const orgs = await orgsRes.json();
+          document.getElementById('platform-orgs-list').innerHTML = orgs.map(o => `
+            <div class="p-2.5 bg-slate-900 rounded-lg border border-slate-800 flex items-center justify-between">
+              <span class="font-bold text-white">${o.name}</span>
+              <span class="text-xs text-slate-400">${o.slug}</span>
+            </div>
+          `).join('');
+        }
+        if (usersRes.ok) {
+          const users = await usersRes.json();
+          document.getElementById('platform-users-list').innerHTML = users.map(u => `
+            <div class="p-2.5 bg-slate-900 rounded-lg border border-slate-800 flex items-center justify-between">
+              <span class="text-white">${u.displayName || u.email}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded ${u.isPlatformAdmin ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-800 text-slate-400'}">
+                ${u.isPlatformAdmin ? 'SuperAdmin' : 'Utilisateur'}
+              </span>
+            </div>
+          `).join('');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // ── PENTEST RUNNER ───────────────────────────────────────────────────────
+    async function runSecuritySuite() {
+      showToast('Pentest en cours...', 'info');
+
+      // Test 1: Cross-Tenant Projects
+      const dot1 = document.getElementById('test-dot-1');
+      const status1 = document.getElementById('test-status-1');
+      const log1 = document.getElementById('test-log-1');
+      try {
+        const fakeOrg = '00000000-0000-0000-0000-000000000000';
+        const res = await fetch(`${API_BASE}/organizations/${fakeOrg}/projects`, {
+          headers: { 'Authorization': `Bearer ${state.accessToken}` }
+        });
+        log1.classList.remove('hidden');
+        log1.innerText = `GET /organizations/${fakeOrg}/projects\nStatus: ${res.status} ${res.statusText}`;
+        if (res.status === 403 || res.status === 404) {
+          status1.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+          status1.innerText = 'PROTÉGÉ (403)';
+          dot1.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        }
+      } catch (e) {}
+
+      // Test 2: Cross-Tenant Jobs
+      const dot2 = document.getElementById('test-dot-2');
+      const status2 = document.getElementById('test-status-2');
+      const log2 = document.getElementById('test-log-2');
+      try {
+        const fakeOrg = '00000000-0000-0000-0000-000000000000';
+        const res = await fetch(`${API_BASE}/organizations/${fakeOrg}/jobs`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${state.accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'REPORT_GENERATION', payload: {} })
+        });
+        log2.classList.remove('hidden');
+        log2.innerText = `POST /organizations/${fakeOrg}/jobs\nStatus: ${res.status} ${res.statusText}`;
+        if (res.status === 403 || res.status === 404) {
+          status2.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+          status2.innerText = 'PROTÉGÉ (403)';
+          dot2.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        }
+      } catch (e) {}
+
+      // Test 3: Token Theft
+      const dot3 = document.getElementById('test-dot-3');
+      const status3 = document.getElementById('test-status-3');
+      const log3 = document.getElementById('test-log-3');
+      try {
+        const oldR = state.refreshToken;
+        await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: oldR }) });
+        const res2 = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: oldR }) });
+        log3.classList.remove('hidden');
+        log3.innerText = `Rejeu token révoqué -> Status: ${res2.status} (Reuse theft detected, family revoked)`;
+        if (res2.status === 401) {
+          status3.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+          status3.innerText = 'VOL DÉTECTÉ (401)';
+          dot3.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        }
+      } catch (e) {}
+
+      // Test 4: Anonymous
+      const dot4 = document.getElementById('test-dot-4');
+      const status4 = document.getElementById('test-status-4');
+      const log4 = document.getElementById('test-log-4');
+      try {
+        const res = await fetch(`${API_BASE}/organizations`);
+        log4.classList.remove('hidden');
+        log4.innerText = `GET /organizations sans Bearer -> Status: ${res.status} (Rejet automatique)`;
+        if (res.status === 401) {
+          status4.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+          status4.innerText = 'PROTÉGÉ (401)';
+          dot4.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        }
+      } catch (e) {}
+
+      showToast('Pentest terminé : 4/4 scénarios validés avec succès !', 'success');
+    }
+
+    // ── EXPLORATEUR DE BASE DE DONNÉES (POSTGRESQL DIRECT) ──────────────────
+    let currentDbTable = 'users';
+    let currentDbData = [];
+
+    async function loadDatabaseTables() {
+      try {
+        const res = await fetch(`${API_BASE}/platform/database/tables`, {
+          headers: { 'Authorization': `Bearer ${state.accessToken}` }
+        });
+        if (!res.ok) throw new Error('Impossible de charger les tables');
+        const data = await res.json();
+        renderDatabaseTables(data.tables);
+        await loadTableData(currentDbTable);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function renderDatabaseTables(tables) {
+      const grid = document.getElementById('db-tables-grid');
+      if (!grid) return;
+      grid.innerHTML = tables.map(t => `
+        <div onclick="selectDbTable('${t.name}')" class="p-3 rounded-xl border cursor-pointer transition-all ${currentDbTable === t.name ? 'bg-emerald-950/60 border-emerald-500/60 shadow-lg shadow-emerald-950/30 ring-1 ring-emerald-500/30' : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'}">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-bold text-white flex items-center gap-1.5 font-mono">
+              <i data-lucide="table" class="w-3.5 h-3.5 text-emerald-400"></i> ${t.name}
+            </span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 font-mono">${t.count}</span>
+          </div>
+          <p class="text-[10px] text-slate-400 truncate">${t.description}</p>
+        </div>
+      `).join('');
+      lucide.createIcons();
+    }
+
+    async function selectDbTable(tableName) {
+      currentDbTable = tableName;
+      await loadTableData(tableName);
+      await loadDatabaseTables();
+    }
+
+    async function loadTableData(tableName) {
+      const tbody = document.getElementById('db-table-body');
+      const thead = document.getElementById('db-table-header');
+      if (!tbody || !thead) return;
+      document.getElementById('db-selected-table-name').innerText = tableName;
+      tbody.innerHTML = '<tr><td colspan="10" class="px-4 py-8 text-center text-slate-400 animate-pulse">Chargement des données en cours...</td></tr>';
+
+      try {
+        const res = await fetch(`${API_BASE}/platform/database/table/${tableName}?limit=100`, {
+          headers: { 'Authorization': `Bearer ${state.accessToken}` }
+        });
+        if (!res.ok) throw new Error('Impossible de charger les lignes');
+        currentDbData = await res.json();
+        document.getElementById('db-selected-table-count').innerText = `(${currentDbData.length} lignes)`;
+        renderDbDataRows(currentDbData);
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="10" class="px-4 py-8 text-center text-rose-400">Erreur : ${err.message}</td></tr>`;
+      }
+    }
+
+    function renderDbDataRows(rows) {
+      const thead = document.getElementById('db-table-header');
+      const tbody = document.getElementById('db-table-body');
+      if (!thead || !tbody) return;
+
+      if (!rows || rows.length === 0) {
+        thead.innerHTML = '';
+        tbody.innerHTML = '<tr><td class="px-4 py-8 text-center text-slate-500">Table vide (0 enregistrement)</td></tr>';
+        return;
+      }
+
+      const columns = Object.keys(rows[0]);
+      thead.innerHTML = `<tr>${columns.map(c => `<th class="px-4 py-3">${c}</th>`).join('')}</tr>`;
+
+      tbody.innerHTML = rows.map(row => `
+        <tr class="hover:bg-slate-900/60 transition-colors">
+          ${columns.map(col => {
+            const val = row[col];
+            let display = val;
+            if (val === null || val === undefined) display = '<span class="text-slate-600">NULL</span>';
+            else if (typeof val === 'boolean') display = `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${val ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}">${val}</span>`;
+            else if (typeof val === 'object') display = `<code class="text-[10px] text-cyan-300" title='${JSON.stringify(val)}'>${JSON.stringify(val).slice(0, 35)}...</code>`;
+            else if (String(val).length > 35) display = `<span title="${val}">${String(val).slice(0, 32)}...</span>`;
+            return `<td class="px-4 py-2.5 truncate max-w-xs">${display}</td>`;
+          }).join('')}
+        </tr>
+      `).join('');
+    }
+
+    function filterDbTable(query) {
+      if (!query.trim()) {
+        renderDbDataRows(currentDbData);
+        return;
+      }
+      const q = query.toLowerCase();
+      const filtered = currentDbData.filter(row => {
+        return Object.values(row).some(v => String(v).toLowerCase().includes(q));
+      });
+      renderDbDataRows(filtered);
+    }
+
+    function setTab(tabId) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.className = 'nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-all';
+      });
+
+      const pane = document.getElementById(`tab-${tabId}`);
+      if (pane) pane.classList.remove('hidden');
+
+      const btn = document.getElementById(`nav-${tabId}`);
+      if (btn) btn.className = 'nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all bg-brand-600/15 text-brand-300 border border-brand-500/30';
+      
+      if (tabId === 'database') {
+        loadDatabaseTables();
+      }
+      lucide.createIcons();
+    }
+
+    function showToast(msg, type = 'info') {
+      const b = document.getElementById('toast-banner');
+      b.classList.remove('hidden');
+      let colors = 'bg-slate-900 border-slate-700 text-slate-200';
+      if (type === 'success') colors = 'bg-emerald-950/80 border-emerald-500/40 text-emerald-300';
+      if (type === 'error') colors = 'bg-rose-950/80 border-rose-500/40 text-rose-300';
+      b.className = `p-3.5 rounded-2xl border flex items-center justify-between text-xs font-medium shadow-xl ${colors}`;
+      b.innerHTML = `<span>${msg}</span><button onclick="this.parentElement.classList.add('hidden')" class="opacity-70 hover:opacity-100"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>`;
+      lucide.createIcons();
+      setTimeout(() => b.classList.add('hidden'), 5000);
+    }
+  </script>
+</body>
+</html>

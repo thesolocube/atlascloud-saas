@@ -10,8 +10,9 @@ async function bootstrap(): Promise<void> {
   const logger = app.get(Logger);
 
   // Worker is a hybrid app — it doesn't listen on HTTP by default.
-  // An optional HTTP server on port 3001 is available for health/metrics.
-  await app.listen(3001);
+  // An optional HTTP server on port 3002 (or WORKER_PORT) is available for health/metrics.
+  const workerPort = process.env.WORKER_PORT ? parseInt(process.env.WORKER_PORT, 10) : 3002;
+  await app.listen(workerPort);
 
   // Graceful shutdown handlers
   const shutdown = async (signal: string): Promise<void> => {

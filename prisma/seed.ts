@@ -154,10 +154,10 @@ async function main(): Promise<void> {
   // Projects for Acme Corp
   const acmeProject1 = await prisma.project
     .upsert({
-      where: { id: 'acme-proj-1-00000000-0000-0000-0000-000000000001' },
+      where: { id: '00000000-0000-0000-0000-000000000001' },
       update: {},
       create: {
-        id: 'acme-proj-1-00000000-0000-0000-0000-000000000001',
+        id: '00000000-0000-0000-0000-000000000001',
         organizationId: acme.id,
         name: 'Alpha Initiative',
         description: 'First major project for Acme Corp',

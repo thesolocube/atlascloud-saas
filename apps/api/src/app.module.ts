@@ -18,6 +18,7 @@ import { MembershipsModule } from './modules/memberships/memberships.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { PlatformModule } from './modules/platform/platform.module';
 import { ProjectsModule } from './modules/projects/projects.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -106,6 +107,7 @@ import { ProjectsModule } from './modules/projects/projects.module';
     JobsModule,
     AuditModule,
     PlatformModule,
+    DashboardModule,
   ],
   providers: [
     {

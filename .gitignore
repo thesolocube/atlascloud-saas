@@ -25,10 +25,11 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 
-# OS
+# OS & Temp
 .DS_Store
 Thumbs.db
 desktop.ini
+*.tmp
 
 # IDE
 .idea/
