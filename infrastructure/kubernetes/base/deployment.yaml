@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atlascloud-api
+  labels:
+    app: atlascloud-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: atlascloud-api
+  template:
+    metadata:
+      labels:
+        app: atlascloud-api
+    spec:
+      containers:
+        - name: api
+          image: atlascloud-api:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: atlascloud-config
+            - secretRef:
+                name: atlascloud-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: atlascloud-api-service
+spec:
+  type: ClusterIP
+  selector:
+    app: atlascloud-api
+  ports:
+    - port: 80
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atlascloud-worker
+  labels:
+    app: atlascloud-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: atlascloud-worker
+  template:
+    metadata:
+      labels:
+        app: atlascloud-worker
+    spec:
+      containers:
+        - name: worker
+          image: atlascloud-worker:latest
+          envFrom:
+            - configMapRef:
+                name: atlascloud-config
+            - secretRef:
+                name: atlascloud-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

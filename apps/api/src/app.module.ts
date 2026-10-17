@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 
@@ -9,6 +10,14 @@ import { AppConfigService } from './config/app-config.service';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { JobsModule } from './modules/jobs/jobs.module';
+import { MembershipsModule } from './modules/memberships/memberships.module';
+import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { PlatformModule } from './modules/platform/platform.module';
+import { ProjectsModule } from './modules/projects/projects.module';
 
 @Module({
   imports: [
@@ -88,6 +97,21 @@ import { MetricsModule } from './metrics/metrics.module';
     DatabaseModule,
     HealthModule,
     MetricsModule,
+
+    // ── SaaS Domain Modules ──────────────────────────────────────────────────
+    AuthModule,
+    OrganizationsModule,
+    MembershipsModule,
+    ProjectsModule,
+    JobsModule,
+    AuditModule,
+    PlatformModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
   ],
 })
 export class AppModule {}

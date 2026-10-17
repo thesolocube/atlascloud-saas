@@ -2,6 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 
+import { PrismaService } from './database/prisma.service';
+import { OutboxPublisher } from './outbox/outbox.publisher';
+import { ReportProcessor } from './processors/report.processor';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -25,5 +29,6 @@ import { LoggerModule } from 'nestjs-pino';
     }),
     // RabbitMQ, Database, Job modules added in Milestone 5
   ],
+  providers: [PrismaService, ReportProcessor, OutboxPublisher],
 })
 export class WorkerModule {}
