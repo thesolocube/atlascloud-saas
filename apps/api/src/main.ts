@@ -31,7 +31,7 @@ async function bootstrap(): Promise<void> {
         : {
             directives: {
               defaultSrc: ["'self'"],
-              styleSrc: ["'self'", "'unsafe-inline'"],
+              styleSrc: ["'self'", "'unsafe-inline'"], // Swagger UI needs this
               imgSrc: ["'self'", 'data:', 'https:'],
               scriptSrc: ["'self'"],
             },
@@ -51,7 +51,16 @@ async function bootstrap(): Promise<void> {
 
   // ── Global prefix and versioning ───────────────────────────────────────────
   app.setGlobalPrefix('api', {
-    exclude: ['dashboard', 'dashboard/(.*)', 'login', 'login/(.*)', ''],
+    exclude: [
+      'health',
+      'health/(.*)',
+      'metrics',
+      'dashboard',
+      'dashboard/(.*)',
+      'login',
+      'login/(.*)',
+      '',
+    ],
   });
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 
@@ -73,16 +82,13 @@ async function bootstrap(): Promise<void> {
   // ── Global exception filters ───────────────────────────────────────────────
   app.useGlobalFilters(app.get(HttpExceptionFilter));
 
-  // ── Request body size limit ────────────────────────────────────────────────
-  // Done via express body-parser settings in AppModule
-
   // ── OpenAPI / Swagger ──────────────────────────────────────────────────────
   if (config.isDevelopment) {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('AtlasCloud API')
       .setDescription(
         'Cloud-native multi-tenant SaaS platform API. ' +
-          'See /api/v1/health/live for liveness and /api/v1/health/ready for readiness.',
+          'See /health/live for liveness and /health/ready for readiness.',
       )
       .setVersion('1.0')
       .addBearerAuth(
@@ -97,6 +103,7 @@ async function bootstrap(): Promise<void> {
       .addTag('audit', 'Audit log access')
       .addTag('platform', 'Platform administration (restricted)')
       .addTag('health', 'Health and readiness checks')
+      .addTag('dashboard', 'Interactive mission control dashboard and auth portal UI')
       .build();
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);
@@ -117,6 +124,7 @@ async function bootstrap(): Promise<void> {
   logger.log(`AtlasCloud API started on http://${host}:${port}/api/v1`, 'Bootstrap');
   if (config.isDevelopment) {
     logger.log(`Swagger UI: http://localhost:${port}/api/docs`, 'Bootstrap');
+    logger.log(`Dashboard: http://localhost:${port}/dashboard`, 'Bootstrap');
   }
 }
 

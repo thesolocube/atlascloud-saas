@@ -7,6 +7,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { CommonModule } from './common/common.module';
 import { AppConfigModule } from './config/app-config.module';
 import { AppConfigService } from './config/app-config.service';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { MetricsModule } from './metrics/metrics.module';
@@ -18,7 +19,6 @@ import { MembershipsModule } from './modules/memberships/memberships.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { PlatformModule } from './modules/platform/platform.module';
 import { ProjectsModule } from './modules/projects/projects.module';
-import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [

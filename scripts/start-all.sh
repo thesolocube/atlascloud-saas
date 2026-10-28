@@ -5,15 +5,16 @@ set -e
 # AtlasCloud — Lanceur Global Clé-en-Main
 # ==============================================================================
 
-PROJECT_DIR="/run/media/atlas/atlasdata/atlascloud"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
-# Rediriger tous les caches temporaires loin de /home/atlas (éviter ENOSPC)
-export XDG_CACHE_HOME="$PROJECT_DIR/.cache"
-export TMPDIR="$PROJECT_DIR/.cache/tmp"
+# Rediriger tous les caches temporaires (éviter ENOSPC)
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$PROJECT_DIR/.cache}"
+export TMPDIR="${TMPDIR:-$PROJECT_DIR/.cache/tmp}"
 export CHECKPOINT_DISABLE=1
 export PRISMA_TELEMETRY_INFORMATION=false
-mkdir -p "$PROJECT_DIR/.cache/tmp" "$PROJECT_DIR/.cache/npm"
+mkdir -p "$PROJECT_DIR/.cache/tmp" "$PROJECT_DIR/.cache/npm" 2>/dev/null || true
 
 # Couleurs pour le terminal
 GREEN='\033[0;32m'

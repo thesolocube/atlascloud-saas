@@ -1,8 +1,9 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
 import { Controller, Get, Res, VERSION_NEUTRAL } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Response } from 'express';
-import * as fs from 'fs';
-import * as path from 'path';
 
 import { Public } from '../common/decorators/public.decorator';
 
@@ -14,11 +15,12 @@ export class DashboardController {
   @ApiOperation({ summary: 'Interactive mission control dashboard and auth portal UI' })
   getDashboard(@Res() res: Response): void {
     const candidates = [
-      '/run/media/atlas/atlasdata/atlascloud/dashboard.html',
+      path.resolve(__dirname, 'dashboard.html'),
       path.resolve(process.cwd(), 'dashboard.html'),
+      path.resolve(process.cwd(), 'apps/api/src/dashboard/dashboard.html'),
+      path.resolve(process.cwd(), 'apps/api/dist/dashboard/dashboard.html'),
       path.resolve(process.cwd(), '../dashboard.html'),
       path.resolve(process.cwd(), '../../dashboard.html'),
-      path.resolve(__dirname, 'dashboard.html'),
       path.resolve(__dirname, '../dashboard.html'),
       path.resolve(__dirname, '../../dashboard.html'),
       path.resolve(__dirname, '../../../dashboard.html'),

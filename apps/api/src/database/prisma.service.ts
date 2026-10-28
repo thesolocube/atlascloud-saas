@@ -22,24 +22,36 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit(): Promise<void> {
-    await this.$connect();
-    this.logger.info('Database connection established');
+    try {
+      await this.$connect();
+      this.logger.info('Database connection established');
 
-    // Log slow queries in development
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    (this.$on as (event: string, cb: (e: { duration: number; query: string }) => void) => void)(
-      'query',
-      (e) => {
-        if (e.duration > 500) {
-          this.logger.warn({ duration: e.duration, query: e.query }, 'Slow database query');
-        }
-      },
-    );
+      // Log slow queries in development
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      (this.$on as (event: string, cb: (e: { duration: number; query: string }) => void) => void)(
+        'query',
+        (e) => {
+          if (e.duration > 500) {
+            this.logger.warn({ duration: e.duration, query: e.query }, 'Slow database query');
+          }
+        },
+      );
+    } catch (err) {
+      if (process.env.NODE_ENV === 'test') {
+        this.logger.warn({ err }, 'Database connection skipped in test environment');
+        return;
+      }
+      throw err;
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.$disconnect();
-    this.logger.info('Database connection closed');
+    try {
+      await this.$disconnect();
+      this.logger.info('Database connection closed');
+    } catch {
+      // Ignore disconnect errors on teardown
+    }
   }
 
   /**

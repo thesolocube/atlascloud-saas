@@ -78,9 +78,6 @@ export class PlatformAdminController {
   @ApiOperation({ summary: 'Retrieve records from a specific database table' })
   @ApiQuery({ name: 'limit', required: false })
   async getTableRecords(@Param('name') name: string, @Query('limit') limit?: string) {
-    return this.platformAdminService.getTableRecords(
-      name,
-      limit ? parseInt(limit, 10) : 50,
-    );
+    return this.platformAdminService.getTableRecords(name, limit ? parseInt(limit, 10) : 50);
   }
 }

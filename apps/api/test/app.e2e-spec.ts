@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, VersioningType } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -17,7 +17,19 @@ describe('AtlasCloud E2E Integration Suite', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
+    app.setGlobalPrefix('api', {
+      exclude: [
+        'health',
+        'health/(.*)',
+        'metrics',
+        'dashboard',
+        'dashboard/(.*)',
+        'login',
+        'login/(.*)',
+        '',
+      ],
+    });
+    app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,

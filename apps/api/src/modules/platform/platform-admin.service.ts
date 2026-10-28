@@ -122,12 +122,32 @@ export class PlatformAdminService {
       tables: [
         { name: 'users', count: users, description: 'Comptes utilisateurs & SuperAdmins' },
         { name: 'organizations', count: organizations, description: 'Tenants & Entreprises' },
-        { name: 'memberships', count: memberships, description: 'Associations Membres-Organisations (RBAC)' },
+        {
+          name: 'memberships',
+          count: memberships,
+          description: 'Associations Membres-Organisations (RBAC)',
+        },
         { name: 'projects', count: projects, description: 'Projets isolés par Row Level Security' },
-        { name: 'jobs', count: jobs, description: 'Tâches asynchrones (Pending, Processing, Done)' },
-        { name: 'outbox_events', count: outboxEvents, description: 'Événements Transactional Outbox (RabbitMQ)' },
-        { name: 'audit_logs', count: auditLogs, description: 'Piste d\'audit immuable et traçabilité' },
-        { name: 'refresh_sessions', count: refreshSessions, description: 'Sessions Refresh Tokens (Hachage SHA-256)' },
+        {
+          name: 'jobs',
+          count: jobs,
+          description: 'Tâches asynchrones (Pending, Processing, Done)',
+        },
+        {
+          name: 'outbox_events',
+          count: outboxEvents,
+          description: 'Événements Transactional Outbox (RabbitMQ)',
+        },
+        {
+          name: 'audit_logs',
+          count: auditLogs,
+          description: "Piste d'audit immuable et traçabilité",
+        },
+        {
+          name: 'refresh_sessions',
+          count: refreshSessions,
+          description: 'Sessions Refresh Tokens (Hachage SHA-256)',
+        },
       ],
     };
   }
@@ -138,7 +158,14 @@ export class PlatformAdminService {
         return this.prisma.user.findMany({
           take: limit,
           orderBy: { createdAt: 'desc' },
-          select: { id: true, email: true, displayName: true, status: true, isPlatformAdmin: true, createdAt: true },
+          select: {
+            id: true,
+            email: true,
+            displayName: true,
+            status: true,
+            isPlatformAdmin: true,
+            createdAt: true,
+          },
         });
       case 'organizations':
         return this.prisma.organization.findMany({

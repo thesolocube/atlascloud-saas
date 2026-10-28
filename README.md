@@ -159,19 +159,19 @@ npm run dev:worker
 
 ## Services & Ports
 
-| Service       | URL                               | Notes                      |
-| ------------- | --------------------------------- | -------------------------- |
-| Web Dashboard | http://localhost:3000/dashboard   | Mission Control & Suite GUI|
-| API           | http://localhost:3000             | Main application           |
-| API Swagger   | http://localhost:3000/api/docs    | Dev only                   |
-| Worker health | http://localhost:3002/health/live | Worker liveness (port 3002)|
-| PostgreSQL    | localhost:5432                    | DB: atlascloud             |
-| Redis         | localhost:6379                    |                            |
-| RabbitMQ AMQP | localhost:5672                    |                            |
-| RabbitMQ UI   | http://localhost:15672            | admin/dev_rabbit_password  |
-| Adminer DB    | http://localhost:8080             | Visual Database Manager    |
-| Prometheus    | http://localhost:9090             |                            |
-| Grafana       | http://localhost:3001             | admin/dev_grafana_password |
+| Service       | URL                               | Notes                       |
+| ------------- | --------------------------------- | --------------------------- |
+| Web Dashboard | http://localhost:3000/dashboard   | Mission Control & Suite GUI |
+| API           | http://localhost:3000             | Main application            |
+| API Swagger   | http://localhost:3000/api/docs    | Dev only                    |
+| Worker health | http://localhost:3002/health/live | Worker liveness (port 3002) |
+| PostgreSQL    | localhost:5432                    | DB: atlascloud              |
+| Redis         | localhost:6379                    |                             |
+| RabbitMQ AMQP | localhost:5672                    |                             |
+| RabbitMQ UI   | http://localhost:15672            | admin/dev_rabbit_password   |
+| Adminer DB    | http://localhost:8080             | Visual Database Manager     |
+| Prometheus    | http://localhost:9090             |                             |
+| Grafana       | http://localhost:3001             | admin/dev_grafana_password  |
 
 ## Development Commands
 
